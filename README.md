@@ -12,6 +12,13 @@
 
 > This is a maintained fork of the original [homeassistant-vevor-heater](https://github.com/MSDATDE/homeassistant-vevor-heater) by [@MSDATDE](https://github.com/MSDATDE), enhanced with HACS 2.0+ compatibility, multi-brand support, and additional improvements.
 
+> [!NOTE]
+> **Fork Notes / Mudiro 8KW & ABBA Protocol Enhancements**:
+> This fork includes dedicated fixes for **Mudiro 8KW Diesel Air Heaters** (`HeaterXXXX`) and other controllers running the **ABBA (AirHeaterCC)** protocol:
+> - **6-Level Scale**: Adjusted heating level scale from 1–10 to **1–6 levels**, matching Mudiro 8KW hardware and controller specifications.
+> - **Step-based Control (+/- Impulses)**: Because the Mudiro/ABBA firmware does not accept absolute temperature/level writes (opcode `0xDB`), level and target temperature adjustments are now executed using sequential step pulses (`0xBB 0xA2` for **+** / `0xBB 0xA3` for **-**) with a safe delay (400 ms) to prevent dropped BLE packets.
+> - **Mode Mapping & Ventilation**: Fixed mode byte swap (**Level** `0xAC` vs **Temperature** `0xAD`) and enabled fan-only **Ventilation** mode (`0xA4`) when the heater is in standby.
+
 Control supported diesel air and water heaters from Home Assistant via Bluetooth. The integration supports AirHeaterBLE (AA55/AA66), AirHeaterCC (ABBA), Sunster (CBFF), Hcalory (MVP1/MVP2), HeatGenie/Boygu, and Webasto ThermoConnect Cronus controllers.
 
 ## Features
