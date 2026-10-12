@@ -8,6 +8,8 @@ from unittest.mock import MagicMock, AsyncMock
 from . import conftest  # noqa: F401
 
 from custom_components.diesel_heater.number import (
+    AbbaAutoStartDeltaNumber,
+    AbbaAutoStopDeltaNumber,
     VevorHeaterLevelNumber,
     VevorHeaterTemperatureNumber,
     VevorHeaterOffsetNumber,
@@ -39,10 +41,14 @@ def create_mock_coordinator(protocol_mode: int = 0) -> MagicMock:
     coordinator.async_set_burnoff_duration = AsyncMock()
     coordinator.async_set_burnoff_after_cycles = AsyncMock()
     coordinator.async_set_burnoff_after_hours = AsyncMock()
+    coordinator.async_set_abba_auto_stop_delta = AsyncMock()
+    coordinator.async_set_abba_auto_start_delta = AsyncMock()
     coordinator.burnoff_duration_minutes = 10
     coordinator.burnoff_after_cycles = 0
     coordinator.burnoff_after_hours = 0
     coordinator.burnoff_active = False
+    coordinator.abba_auto_stop_delta = 3
+    coordinator.abba_auto_start_delta = 3
     coordinator.protocol_mode = protocol_mode
     coordinator._heater_uses_fahrenheit = False
     coordinator.has_cronus_fuel_estimate = False
@@ -52,6 +58,8 @@ def create_mock_coordinator(protocol_mode: int = 0) -> MagicMock:
         "set_temp": 22,
         "heater_offset": 0,
         "tank_capacity": 5,
+        "auto_stop_delta": 3,
+        "auto_start_delta": 3,
     }
     return coordinator
 
@@ -667,3 +675,65 @@ class TestVevorBurnoffAfterHoursNumber:
         await number.async_set_native_value(2)
 
         coordinator.async_set_burnoff_after_hours.assert_called_once_with(2)
+
+
+class TestAbbaAutoStopDeltaNumber:
+    """Tests for ABBA auto stop temperature delta number entity."""
+
+    def test_native_value(self):
+        """Test native_value returns coordinator auto stop delta."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        coordinator.abba_auto_stop_delta = 4
+        number = AbbaAutoStopDeltaNumber(coordinator)
+
+        assert number.native_value == 4.0
+
+    def test_min_max(self):
+        """Test range is 1-10."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        number = AbbaAutoStopDeltaNumber(coordinator)
+
+        assert number._attr_native_min_value == 1
+        assert number._attr_native_max_value == 10
+        assert number._attr_native_step == 1
+
+    @pytest.mark.asyncio
+    async def test_async_set_native_value(self):
+        """Test setting stop delta calls coordinator."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        number = AbbaAutoStopDeltaNumber(coordinator)
+
+        await number.async_set_native_value(5)
+
+        coordinator.async_set_abba_auto_stop_delta.assert_called_once_with(5)
+
+
+class TestAbbaAutoStartDeltaNumber:
+    """Tests for ABBA auto start temperature delta number entity."""
+
+    def test_native_value(self):
+        """Test native_value returns coordinator auto start delta."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        coordinator.abba_auto_start_delta = 2
+        number = AbbaAutoStartDeltaNumber(coordinator)
+
+        assert number.native_value == 2.0
+
+    def test_min_max(self):
+        """Test range is 1-10."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        number = AbbaAutoStartDeltaNumber(coordinator)
+
+        assert number._attr_native_min_value == 1
+        assert number._attr_native_max_value == 10
+        assert number._attr_native_step == 1
+
+    @pytest.mark.asyncio
+    async def test_async_set_native_value(self):
+        """Test setting start delta calls coordinator."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        number = AbbaAutoStartDeltaNumber(coordinator)
+
+        await number.async_set_native_value(4)
+
+        coordinator.async_set_abba_auto_start_delta.assert_called_once_with(4)

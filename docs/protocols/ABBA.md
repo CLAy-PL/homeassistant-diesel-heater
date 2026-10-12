@@ -53,6 +53,8 @@ Commands consist of the command bytes below followed by their additive checksum.
 | Level to temperature | `BA AB 04 BB AD 00 00` | Transition from level mode |
 | Temperature to level | `BA AB 04 BB AC 00 00` | Transition from temperature mode |
 | Ventilation | `BA AB 04 BB A4 00 00` | Works from standby/off on confirmed hardware |
+| Auto start/stop toggle | `BA AB 04 BB A6 00 00` | Toggles automatic start/stop feature |
+| Auto start/stop hysteresis | `BA AB 04 DA SS RR 00` | `SS` = stop delta (+°C), `RR` = restart delta (-°C) |
 
 Level is not set with a single absolute packet. The integration compares the
 reported level with the requested level and sends the required number of A2 or

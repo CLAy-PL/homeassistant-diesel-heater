@@ -7,6 +7,7 @@ from diesel_heater_ble.const import (  # noqa: F401
     ABBA_CMD_AUTO,
     ABBA_CMD_CONST_TEMP,
     ABBA_CMD_GET_AUTO_CONFIG,
+    ABBA_CMD_SET_AUTO_CONFIG,
     ABBA_CMD_GET_TIME,
     ABBA_CMD_HEAT_OFF,
     ABBA_CMD_HEAT_ON,
@@ -352,6 +353,14 @@ MAX_BURNOFF_IN_RUN_ABORTS: Final = 1
 BURNOFF_NEAR_COMPLETE_REMAINING_RATIO: Final = 0.2
 STORAGE_KEY_BURNOFF: Final = "burnoff"
 STORAGE_KEY_BURNOFF_ACCUMULATOR: Final = "burnoff_accumulator"
+
+# ABBA Auto Start/Stop temperature hysteresis (opcode 0xDA)
+CONF_AUTO_STOP_DELTA: Final = "auto_stop_delta"
+CONF_AUTO_START_DELTA: Final = "auto_start_delta"
+DEFAULT_AUTO_STOP_DELTA: Final = 3
+DEFAULT_AUTO_START_DELTA: Final = 3
+MIN_AUTO_HYSTERESIS_DELTA: Final = 1
+MAX_AUTO_HYSTERESIS_DELTA: Final = 10
 
 # History settings
 MAX_HISTORY_DAYS: Final = 30  # Keep last 30 days of daily consumption

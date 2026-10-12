@@ -181,6 +181,9 @@ class VevorAutoStartStopSwitch(CoordinatorEntity[VevorHeaterCoordinator], Switch
         """
         if not self.coordinator.data.get("connected", False):
             return False
+        # ABBA/HeaterCC protocol allows configuring Auto Start/Stop whenever connected
+        if self.coordinator.protocol_mode == 5:
+            return True
         # Only show as available in Temperature mode
         return self.coordinator.data.get("running_mode") == RUNNING_MODE_TEMPERATURE
 

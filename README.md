@@ -18,6 +18,7 @@
 > - **6-Level Scale**: Adjusted heating level scale from 1–10 to **1–6 levels**, matching Mudiro 8KW hardware and controller specifications.
 > - **Step-based Control (+/- Impulses)**: Because the Mudiro/ABBA firmware does not accept absolute temperature/level writes (opcode `0xDB`), level and target temperature adjustments are now executed using sequential step pulses (`0xBB 0xA2` for **+** / `0xBB 0xA3` for **-**) with a safe delay (400 ms) to prevent dropped BLE packets.
 > - **Mode Mapping & Ventilation**: Fixed mode byte swap (**Level** `0xAC` vs **Temperature** `0xAD`) and enabled fan-only **Ventilation** mode (`0xA4`) when the heater is in standby.
+> - **Auto Start/Stop & Hysteresis**: Fixed Auto Start/Stop toggle (`0xBB 0xA6`) and added configuration number entities for positive stop delta (`Auto Stop Temp (+)`) and negative restart delta (`Auto Start Temp (-)`) via opcode `0xDA`.
 
 Control supported diesel air and water heaters from Home Assistant via Bluetooth. The integration supports AirHeaterBLE (AA55/AA66), AirHeaterCC (ABBA), Sunster (CBFF), Hcalory (MVP1/MVP2), HeatGenie/Boygu, and Webasto ThermoConnect Cronus controllers.
 

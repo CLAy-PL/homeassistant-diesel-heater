@@ -48,12 +48,16 @@ from .const import (
     CONF_FORCE_TEMP_UNIT,
     CONF_CRONUS_HEATER_MODEL,
     CRONUS_FUEL_PROFILES,
+    CONF_AUTO_STOP_DELTA,
+    CONF_AUTO_START_DELTA,
     CONF_NEO_PASSWORD,
     CONF_PIN,
     CONF_TEMPERATURE_OFFSET,
     CRONUS_NOTIFY_UUID,
     CRONUS_WRITE_UUID,
     DEFAULT_AUTO_OFFSET_MAX,
+    DEFAULT_AUTO_STOP_DELTA,
+    DEFAULT_AUTO_START_DELTA,
     DEFAULT_BURNOFF_AFTER_CYCLES,
     DEFAULT_BURNOFF_AFTER_HOURS,
     DEFAULT_BURNOFF_DURATION,
@@ -171,6 +175,16 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
         # Get passkey from config, default to 1234 (factory default for most heaters)
         self._passkey = config_entry.data.get(CONF_PIN, DEFAULT_PIN)
         self._neo_password = config_entry.data.get(CONF_NEO_PASSWORD, DEFAULT_NEO_PASSWORD)
+        self._abba_auto_stop_delta: int = (
+            config_entry.data.get(CONF_AUTO_STOP_DELTA, DEFAULT_AUTO_STOP_DELTA)
+            if hasattr(config_entry, "data")
+            else DEFAULT_AUTO_STOP_DELTA
+        )
+        self._abba_auto_start_delta: int = (
+            config_entry.data.get(CONF_AUTO_START_DELTA, DEFAULT_AUTO_START_DELTA)
+            if hasattr(config_entry, "data")
+            else DEFAULT_AUTO_START_DELTA
+        )
         self._protocol_mode = 0  # Will be detected from response (1-6)
         self._protocol: HeaterProtocol | None = None  # Active protocol handler
         force_temp_unit = config_entry.data.get(
@@ -254,6 +268,8 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
             "heater_offset": 0,  # Current offset sent to heater (cmd 20)
             "connected": False,
             "auto_start_stop": None,  # Automatic Start/Stop flag (byte 31)
+            "auto_stop_delta": self._abba_auto_stop_delta,
+            "auto_start_delta": self._abba_auto_start_delta,
             "auto_offset_enabled": False,  # Auto offset adjustment enabled
             # Configuration settings (bytes 26-30)
             "language": None,  # byte 26: Voice notification language
@@ -3233,14 +3249,95 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
         """Set Automatic Start/Stop mode (cmd 18).
 
         When enabled in Temperature mode, the heater will completely stop
-        when the room temperature reaches 2°C above the target, and restart
-        when it drops 2°C below the target.
+        when the room temperature reaches above the target, and restart
+        when it drops below the target.
         """
         self._logger.info("Setting Auto Start/Stop to %s", "enabled" if enabled else "disabled")
+        # ABBA protocol uses a toggle command (0xA6).
+        # Guard against accidental toggle if current state already matches.
+        if self._protocol_mode == 5 or self._is_abba_device:
+            current = self.data.get("auto_start_stop")
+            if current is not None and bool(current) == enabled:
+                self._logger.info(
+                    "ABBA: Auto Start/Stop already %s, skipping toggle command",
+                    "enabled" if enabled else "disabled",
+                )
+                return
+
         # Command 18, arg=1 for enabled, arg=0 for disabled
         success = await self._send_command(18, 1 if enabled else 0)
         if success:
+            if self._protocol_mode == 5 or self._is_abba_device:
+                self.data["auto_start_stop"] = enabled
+                if enabled:
+                    # Sync current hysteresis settings to heater upon enabling
+                    try:
+                        await self.async_set_abba_auto_hysteresis(
+                            self._abba_auto_stop_delta, self._abba_auto_start_delta
+                        )
+                    except Exception as err:
+                        self._logger.warning("ABBA: Failed to send auto hysteresis config: %s", err)
             await self.async_request_refresh()
+
+    @property
+    def abba_auto_stop_delta(self) -> int:
+        """Return Auto Stop temperature delta (degrees above target to stop)."""
+        return self._abba_auto_stop_delta
+
+    @property
+    def abba_auto_start_delta(self) -> int:
+        """Return Auto Start temperature delta (degrees below target to restart)."""
+        return self._abba_auto_start_delta
+
+    async def async_set_abba_auto_stop_delta(self, value: int) -> None:
+        """Set Auto Stop temperature delta (degrees above target to stop)."""
+        val = max(1, min(10, int(value)))
+        self._abba_auto_stop_delta = val
+        self.data["auto_stop_delta"] = val
+        if hasattr(self.config_entry, "data"):
+            new_data = {**self.config_entry.data, CONF_AUTO_STOP_DELTA: val}
+            self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        self.async_set_updated_data(self.data)
+        await self.async_set_abba_auto_hysteresis(stop_delta=val)
+
+    async def async_set_abba_auto_start_delta(self, value: int) -> None:
+        """Set Auto Start temperature delta (degrees below target to restart)."""
+        val = max(1, min(10, int(value)))
+        self._abba_auto_start_delta = val
+        self.data["auto_start_delta"] = val
+        if hasattr(self.config_entry, "data"):
+            new_data = {**self.config_entry.data, CONF_AUTO_START_DELTA: val}
+            self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
+        self.async_set_updated_data(self.data)
+        await self.async_set_abba_auto_hysteresis(start_delta=val)
+
+    async def async_set_abba_auto_hysteresis(
+        self, stop_delta: int | None = None, start_delta: int | None = None
+    ) -> bool:
+        """Set ABBA Auto Start/Stop temperature hysteresis (cmd 102 / opcode 0xDA).
+
+        stop_delta: degrees above target to shut down heater (positive delta)
+        start_delta: degrees below target to restart heater (negative delta)
+        """
+        if stop_delta is not None:
+            self._abba_auto_stop_delta = max(1, min(10, int(stop_delta)))
+        if start_delta is not None:
+            self._abba_auto_start_delta = max(1, min(10, int(start_delta)))
+
+        self.data["auto_stop_delta"] = self._abba_auto_stop_delta
+        self.data["auto_start_delta"] = self._abba_auto_start_delta
+
+        arg = (self._abba_auto_stop_delta << 8) | self._abba_auto_start_delta
+        self._logger.info(
+            "ABBA: Setting Auto Start/Stop hysteresis to +%d°C / -%d°C (arg=%d)",
+            self._abba_auto_stop_delta,
+            self._abba_auto_start_delta,
+            arg,
+        )
+        success = await self._send_command(102, arg)
+        if success:
+            await self.async_request_refresh()
+        return success
 
     async def async_sync_time(self) -> None:
         """Sync heater time with Home Assistant time (cmd 10).

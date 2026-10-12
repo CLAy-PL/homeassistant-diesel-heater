@@ -1541,6 +1541,48 @@ class TestAsyncCommands:
         coordinator._send_command.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_async_set_auto_start_stop_abba_toggles_and_syncs_hysteresis(self):
+        """Test ABBA auto start/stop sends toggle (18, 1) and syncs hysteresis (102)."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["auto_start_stop"] = False
+        coordinator._send_command = AsyncMock(return_value=True)
+
+        await coordinator.async_set_auto_start_stop(True)
+
+        # First call is cmd 18, second call is cmd 102 (arg=(3<<8)|3 = 771)
+        assert coordinator._send_command.call_count == 2
+        assert coordinator._send_command.call_args_list[0] == call(18, 1)
+        assert coordinator._send_command.call_args_list[1] == call(102, (3 << 8) | 3)
+        assert coordinator.data["auto_start_stop"] is True
+
+    @pytest.mark.asyncio
+    async def test_async_set_auto_start_stop_abba_skips_when_matching(self):
+        """Test ABBA auto start/stop skips toggle when state is already desired."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["auto_start_stop"] = True
+        coordinator._send_command = AsyncMock(return_value=True)
+
+        await coordinator.async_set_auto_start_stop(True)
+
+        coordinator._send_command.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_set_abba_auto_hysteresis(self):
+        """Test setting ABBA hysteresis sends command 102 with packed deltas."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator._send_command = AsyncMock(return_value=True)
+
+        success = await coordinator.async_set_abba_auto_hysteresis(stop_delta=4, start_delta=2)
+
+        assert success is True
+        assert coordinator.abba_auto_stop_delta == 4
+        assert coordinator.abba_auto_start_delta == 2
+        coordinator._send_command.assert_called_once_with(102, (4 << 8) | 2)
+
+    @pytest.mark.asyncio
     async def test_async_sync_time(self):
         """Test async_sync_time sends time sync command."""
         coordinator = create_mock_coordinator()

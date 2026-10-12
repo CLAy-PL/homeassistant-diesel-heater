@@ -118,6 +118,7 @@ ABBA_CMD_CONST_TEMP: Final = bytes.fromhex("baab04bbad0000")
 ABBA_CMD_OTHER_MODE: Final = bytes.fromhex("baab04bbac0000")
 ABBA_CMD_GET_TIME: Final = bytes.fromhex("baab04ec000000")
 ABBA_CMD_GET_AUTO_CONFIG: Final = bytes.fromhex("baab04dc000000")
+ABBA_CMD_SET_AUTO_CONFIG: Final = bytes.fromhex("baab04da030300")
 ABBA_CMD_STATUS: Final = bytes.fromhex("baab04cc00000035")
 
 # Error codes (AA55 protocols)

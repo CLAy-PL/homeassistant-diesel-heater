@@ -16,9 +16,11 @@ from .const import (
     MAX_BURNOFF_AFTER_CYCLES,
     MAX_BURNOFF_AFTER_HOURS,
     MAX_BURNOFF_DURATION,
+    MAX_AUTO_HYSTERESIS_DELTA,
     MAX_HEATER_OFFSET,
     MAX_LEVEL,
     MAX_TEMP_CELSIUS,
+    MIN_AUTO_HYSTERESIS_DELTA,
     MIN_BURNOFF_AFTER_CYCLES,
     MIN_BURNOFF_AFTER_HOURS,
     MIN_BURNOFF_DURATION,
@@ -69,6 +71,13 @@ async def async_setup_entry(
         # Offset number (encrypted + CBFF protocols only)
         if mode in (0, 2, 4, 6):
             entities.append(VevorHeaterOffsetNumber(coordinator))
+
+        # ABBA Auto Start/Stop hysteresis numbers (AirHeaterCC app)
+        if mode in (0, 5):
+            entities.extend([
+                AbbaAutoStopDeltaNumber(coordinator),
+                AbbaAutoStartDeltaNumber(coordinator),
+            ])
 
     async_add_entities(entities)
 
@@ -564,6 +573,82 @@ class VevorBurnoffAfterHoursNumber(CoordinatorEntity[VevorHeaterCoordinator], Nu
     async def async_set_native_value(self, value: float) -> None:
         """Set the hours threshold."""
         await self.coordinator.async_set_burnoff_after_hours(int(value))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self.async_write_ha_state()
+
+
+class AbbaAutoStopDeltaNumber(CoordinatorEntity[VevorHeaterCoordinator], NumberEntity):
+    """Auto Stop temperature delta for ABBA protocol (degrees above target to stop)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Auto Stop Temp (+)"
+    _attr_icon = "mdi:thermometer-chevron-up"
+    _attr_native_min_value = MIN_AUTO_HYSTERESIS_DELTA
+    _attr_native_max_value = MAX_AUTO_HYSTERESIS_DELTA
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: VevorHeaterCoordinator) -> None:
+        """Initialize the number entity."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.address}_auto_stop_delta"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.address)},
+            "name": "Vevor Diesel Heater",
+            "manufacturer": "Vevor",
+            "model": "Diesel Heater",
+        }
+
+    @property
+    def native_value(self) -> float:
+        """Return the current auto stop delta."""
+        return float(self.coordinator.abba_auto_stop_delta)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set the auto stop delta."""
+        await self.coordinator.async_set_abba_auto_stop_delta(int(value))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self.async_write_ha_state()
+
+
+class AbbaAutoStartDeltaNumber(CoordinatorEntity[VevorHeaterCoordinator], NumberEntity):
+    """Auto Start temperature delta for ABBA protocol (degrees below target to restart)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Auto Start Temp (-)"
+    _attr_icon = "mdi:thermometer-chevron-down"
+    _attr_native_min_value = MIN_AUTO_HYSTERESIS_DELTA
+    _attr_native_max_value = MAX_AUTO_HYSTERESIS_DELTA
+    _attr_native_step = 1
+    _attr_native_unit_of_measurement = UnitOfTemperature.CELSIUS
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: VevorHeaterCoordinator) -> None:
+        """Initialize the number entity."""
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.address}_auto_start_delta"
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, coordinator.address)},
+            "name": "Vevor Diesel Heater",
+            "manufacturer": "Vevor",
+            "model": "Diesel Heater",
+        }
+
+    @property
+    def native_value(self) -> float:
+        """Return the current auto start delta."""
+        return float(self.coordinator.abba_auto_start_delta)
+
+    async def async_set_native_value(self, value: float) -> None:
+        """Set the auto start delta."""
+        await self.coordinator.async_set_abba_auto_start_delta(int(value))
 
     @callback
     def _handle_coordinator_update(self) -> None:

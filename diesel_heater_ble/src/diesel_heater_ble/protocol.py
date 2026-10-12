@@ -1019,6 +1019,15 @@ class ProtocolABBA(HeaterProtocol):
                 return self._build_abba("baab04bba40000")
             else:
                 return self._build_abba("baab04bbac0000")  # Level mode
+        elif command == 18:
+            # Auto start/stop toggle command (0xA6)
+            return self._build_abba("baab04bba60000")
+        elif command == 102:
+            # Auto start/stop hysteresis: argument packs (stop_delta << 8) | start_delta
+            # Opcode 0xDA: [stop_delta] [start_delta] 0x00
+            stop_delta = max(1, min(10, (argument >> 8) & 0xFF))
+            start_delta = max(1, min(10, argument & 0xFF))
+            return self._build_abba(f"baab04da{stop_delta:02x}{start_delta:02x}00")
         elif command == 15:
             if argument == 1:
                 return self._build_abba("baab04bba80000")  # Fahrenheit
@@ -1037,6 +1046,16 @@ class ProtocolABBA(HeaterProtocol):
         else:
             # Unknown command — send status request as fallback
             return self._build_abba("baab04cc000000")
+
+    def build_auto_hysteresis_command(self, stop_delta: int, start_delta: int) -> bytearray:
+        """Build ABBA auto start/stop hysteresis command (opcode 0xDA).
+
+        stop_delta: degrees above target to stop heater (+ delta)
+        start_delta: degrees below target to restart heater (- delta)
+        """
+        stop_val = max(1, min(10, stop_delta))
+        start_val = max(1, min(10, start_delta))
+        return self._build_abba(f"baab04da{stop_val:02x}{start_val:02x}00")
 
     @staticmethod
     def _build_abba(cmd_hex: str) -> bytearray:

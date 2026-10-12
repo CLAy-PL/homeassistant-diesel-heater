@@ -1168,6 +1168,22 @@ class TestProtocolABBA:
         pkt = self.proto.build_command(99, 0, 1234)
         assert pkt[4] == 0xA5
 
+    def test_build_command_auto_start_stop(self):
+        """Command 18 → auto start/stop toggle (0xA6)."""
+        pkt = self.proto.build_command(18, 1, 1234)
+        assert pkt.hex() == "baab04bba60000ca"
+
+    def test_build_command_auto_hysteresis(self):
+        """Command 102 → auto start/stop hysteresis (opcode 0xDA)."""
+        # (3 << 8) | 3 = stop +3°C, start -3°C
+        pkt = self.proto.build_command(102, (3 << 8) | 3, 1234)
+        assert pkt.hex() == "baab04da03030049"
+
+    def test_build_auto_hysteresis_command_method(self):
+        """Method build_auto_hysteresis_command generates valid packet."""
+        pkt = self.proto.build_auto_hysteresis_command(3, 3)
+        assert pkt.hex() == "baab04da03030049"
+
     def test_build_command_checksum(self):
         """Last byte is checksum (sum of all previous bytes & 0xFF)."""
         pkt = self.proto.build_command(1, 0, 1234)
