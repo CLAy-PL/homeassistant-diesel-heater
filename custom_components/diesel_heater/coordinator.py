@@ -2331,6 +2331,22 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
         Delegates to the active protocol's command builder.
         Falls back to Hcalory if _is_hcalory_device, ABBA if _is_abba_device, else AA55.
         """
+        # Intercept ABBA commands 18 and 102 in coordinator to guarantee compatibility
+        # with any installed diesel-heater-ble package version
+        if self._is_abba_device or self._protocol_mode == 5:
+            if command == 18:
+                packet = bytearray.fromhex("baab04bba60000ca")
+                self._logger.debug("Command packet (8 bytes, ABBA): %s", packet.hex())
+                return packet
+            elif command == 102:
+                stop_delta = max(1, min(10, (argument >> 8) & 0xFF))
+                start_delta = max(1, min(10, argument & 0xFF))
+                cmd_bytes = bytes([0xBA, 0xAB, 0x04, 0xDA, stop_delta, start_delta, 0x00])
+                chk = sum(cmd_bytes) & 0xFF
+                packet = bytearray(cmd_bytes) + bytearray([chk])
+                self._logger.debug("Command packet (8 bytes, ABBA): %s", packet.hex())
+                return packet
+
         if self._protocol:
             protocol = self._protocol
         elif self._is_hcalory_device:

@@ -7,7 +7,6 @@ from diesel_heater_ble.const import (  # noqa: F401
     ABBA_CMD_AUTO,
     ABBA_CMD_CONST_TEMP,
     ABBA_CMD_GET_AUTO_CONFIG,
-    ABBA_CMD_SET_AUTO_CONFIG,
     ABBA_CMD_GET_TIME,
     ABBA_CMD_HEAT_OFF,
     ABBA_CMD_HEAT_ON,
@@ -118,6 +117,9 @@ CONF_NEO_PASSWORD: Final = "neo_password"
 DEFAULT_NEO_PASSWORD: Final = 100000000
 MIN_NEO_PASSWORD: Final = 0
 MAX_NEO_PASSWORD: Final = 2147483647
+
+# ABBA Auto Start/Stop hysteresis command base
+ABBA_CMD_SET_AUTO_CONFIG: Final = bytes.fromhex("baab04da030300")
 
 # Climate presets
 CONF_PRESET_AWAY_TEMP: Final = "preset_away_temp"
