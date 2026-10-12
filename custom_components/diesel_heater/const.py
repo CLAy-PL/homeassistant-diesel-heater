@@ -73,6 +73,7 @@ NOTIFY_UUID_ALT: Final = "0000fff2-0000-1000-8000-00805f9b34fb"
 ABBA_SERVICE_UUID: Final = "0000fff0-0000-1000-8000-00805f9b34fb"
 ABBA_NOTIFY_UUID: Final = "0000fff1-0000-1000-8000-00805f9b34fb"
 ABBA_WRITE_UUID: Final = "0000fff2-0000-1000-8000-00805f9b34fb"
+ABBA_STEP_DELAY: Final = 0.4  # Safe interval between step packets to avoid dropped BLE writes
 
 # Sunster Neo DZ06 split-FFF0 transport.  Unlike legacy ABBA devices,
 # FFF1 is write-capable and FFF2 is notify-capable.

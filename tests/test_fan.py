@@ -103,6 +103,14 @@ class TestVevorHeaterFan:
 
         assert fan._attr_speed_count == 10
 
+    def test_speed_count_abba(self):
+        """Test speed count is 6 for ABBA devices."""
+        coordinator = create_mock_coordinator()
+        coordinator.protocol_mode = 5
+        fan = VevorHeaterFan(coordinator)
+
+        assert fan._attr_speed_count == 6
+
     def test_device_info(self):
         """Test device_info is set correctly."""
         coordinator = create_mock_coordinator()

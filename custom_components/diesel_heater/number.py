@@ -113,6 +113,8 @@ class VevorHeaterLevelNumber(CoordinatorEntity[VevorHeaterCoordinator], NumberEn
         )
         if coordinator.protocol_mode == 9:
             self._attr_native_max_value = 4
+        elif coordinator.protocol_mode in (5, 7):
+            self._attr_native_max_value = 6
 
     @property
     def available(self) -> bool:

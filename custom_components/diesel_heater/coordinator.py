@@ -32,6 +32,7 @@ from .burnoff import BurnoffController, BurnoffPhase
 from .const import (
     ABBA_NOTIFY_UUID,
     ABBA_SERVICE_UUID,
+    ABBA_STEP_DELAY,
     ABBA_WRITE_UUID,
     AUTO_OFFSET_THRESHOLD,
     AUTO_OFFSET_THROTTLE_SECONDS,
@@ -2983,7 +2984,8 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
             self._logger.info("Ignoring level change during burn-off")
             return False
 
-        level = max(1, min(10, level))
+        max_level = 6 if self._protocol_mode in (5, 7) else 10
+        level = max(1, min(max_level, level))
         if self._protocol_mode == 5:  # ABBA/HeaterCC uses level up/down button commands
             current_level_raw = self.data.get("set_level")
             try:
@@ -3010,7 +3012,7 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
                 if not success:
                     break
                 if index < steps - 1:
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(ABBA_STEP_DELAY)
 
             if success:
                 await self.async_request_refresh()
@@ -3093,6 +3095,9 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
                 return False
             temperature = max(minimum, min(maximum, temperature))
             unit_str = "°C"
+        elif self._protocol_mode == 5:
+            temperature = max(8, min(36, temperature))
+            unit_str = "°C"
         elif self._heater_uses_fahrenheit:
             temperature = max(32, min(104, temperature))
             unit_str = "°F"
@@ -3118,6 +3123,42 @@ class VevorHeaterCoordinator(DataUpdateCoordinator):
             return await self._async_set_dz06_neo_control(
                 run_type, command_temp, altitude
             )
+
+        if self._protocol_mode == 5:  # ABBA/HeaterCC uses temp up/down button commands
+            current_temp_raw = self.data.get("set_temp")
+            try:
+                current_temp_val = max(8, min(36, int(round(float(current_temp_raw)))))
+            except (TypeError, ValueError):
+                self._logger.warning("ABBA: Cannot set temperature without current set_temp")
+                return False
+
+            diff = command_temp - current_temp_val
+            if diff == 0:
+                self._logger.info("ABBA: Target temperature already %d, skipping command", command_temp)
+                return True
+
+            step_arg = 1 if diff > 0 else -1
+            steps = abs(diff)
+            self._logger.info(
+                "SET TEMPERATURE REQUEST: target=%d, current=%d, protocol=5 (cmd=5, steps=%d)",
+                command_temp, current_temp_val, steps
+            )
+
+            success = True
+            for index in range(steps):
+                success = await self._send_command(5, step_arg)
+                if not success:
+                    break
+                if index < steps - 1:
+                    await asyncio.sleep(ABBA_STEP_DELAY)
+
+            if success:
+                await self.async_request_refresh()
+                self._logger.info("✅ SET TEMPERATURE SUCCESS: target=%d", command_temp)
+            else:
+                self._logger.warning("❌ SET TEMPERATURE FAILED: target=%d", command_temp)
+            return success
+
         success = await self._send_command(4, command_temp)
 
         if success:

@@ -92,6 +92,13 @@ class TestVevorHeaterLevelNumber:
 
         assert number._attr_native_max_value == 4
 
+    def test_abba_level_maximum_is_six(self):
+        """ABBA protocol heaters support levels 1-6."""
+        coordinator = create_mock_coordinator(protocol_mode=5)
+        number = VevorHeaterLevelNumber(coordinator)
+
+        assert number._attr_native_max_value == 6
+
     def test_step_attr(self):
         """Test _attr_native_step is 1."""
         coordinator = create_mock_coordinator()

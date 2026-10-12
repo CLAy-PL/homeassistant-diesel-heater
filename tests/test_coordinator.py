@@ -1444,6 +1444,65 @@ class TestAsyncCommands:
         assert call_args[0][1] == 25
 
     @pytest.mark.asyncio
+    async def test_async_set_temperature_abba_steps_up(self):
+        """ABBA temperature changes use repeated temp-up button commands."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["set_temp"] = 20
+        coordinator._send_command = AsyncMock(return_value=True)
+        coordinator.async_request_refresh = AsyncMock()
+
+        with patch("custom_components.diesel_heater.coordinator.asyncio.sleep", AsyncMock()) as sleep_mock:
+            await coordinator.async_set_temperature(23)
+
+        assert coordinator._send_command.call_args_list == [call(5, 1), call(5, 1), call(5, 1)]
+        assert sleep_mock.await_count == 2
+        coordinator.async_request_refresh.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_async_set_temperature_abba_steps_down(self):
+        """ABBA temperature changes use repeated temp-down button commands."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["set_temp"] = 25
+        coordinator._send_command = AsyncMock(return_value=True)
+        coordinator.async_request_refresh = AsyncMock()
+
+        with patch("custom_components.diesel_heater.coordinator.asyncio.sleep", AsyncMock()) as sleep_mock:
+            await coordinator.async_set_temperature(22)
+
+        assert coordinator._send_command.call_args_list == [call(5, -1), call(5, -1), call(5, -1)]
+        assert sleep_mock.await_count == 2
+        coordinator.async_request_refresh.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_async_set_temperature_abba_skips_when_current_temp_unknown(self):
+        """ABBA temperature changes require a known current target temperature."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["set_temp"] = None
+        coordinator._send_command = AsyncMock(return_value=True)
+        coordinator.async_request_refresh = AsyncMock()
+
+        await coordinator.async_set_temperature(22)
+
+        coordinator._send_command.assert_not_called()
+        coordinator.async_request_refresh.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_async_set_temperature_abba_skips_when_same(self):
+        """ABBA temperature changes skip when target equals current temperature."""
+        coordinator = create_mock_coordinator()
+        coordinator._protocol_mode = 5
+        coordinator.data["set_temp"] = 22
+        coordinator._send_command = AsyncMock(return_value=True)
+        coordinator.async_request_refresh = AsyncMock()
+
+        await coordinator.async_set_temperature(22)
+
+        coordinator._send_command.assert_not_called()
+        coordinator.async_request_refresh.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_async_set_temperature_heatgenie_uses_native_limits(self):
         coordinator = create_mock_coordinator()
